@@ -2,14 +2,20 @@
 -- Or returns 0 if the 2nd numb == 0.
 -- DELIMITTER $$
 DELIMITER //
--- DROP FUNCTION IF EXISTS SafeDiv;
-CREATE FUNCTION IF NOT EXISTS SafeDiv (
+DROP FUNCTION IF EXISTS SafeDiv;
+CREATE FUNCTION SafeDiv (
 	a INT,
 	b INT
 )
 RETURNS FLOAT DETERMINISTIC
 BEGIN
-    RETURN (IF (b = 0, 0, a / b));
+	DECLARE result FLOAT;
+	IF b = 0 THEN
+		SET result = 0;
+	ELSE
+		SET result = (a * 1.0) / b;
+	END IF;
+    RETURN (result);
 END //
 
 DELIMITER ;
