@@ -1,45 +1,47 @@
 #!/usr/bin/env python3
-'''
-This script provides some stats about Nginx logs stored in MongoDB
-And adds the top 10 of the most present IPs in nginx db logs collection
-'''
+"""Python script that provides some stats about Nginx logs stored in MongoDB
+"""
 
 from pymongo import MongoClient
 
 
-def nginxlog_stats:
-    """ Provides Nginx log statistics """
-    client = MongoClient('mongodb://127.0.0.1:27017')
-    nginx = client.logs.nginx
-    total_logs = nginx.count_documents({})
-    get = nginx.count_documents({'method' : 'GET'})
-    post = nginx.count_documents({'method' : 'POST'})
-    put = nginx.count_documents({'method' : 'PUT'})
-    patch = nginx.count_documents({'method' : 'PATCH'})
-    delete = nginx.count_documents({'method' : 'DELETE'})
+def nginx_stats_check():
+    """ provides some stats about Nginx logs stored in MongoDB:"""
+    client = MongoClient()
+    collec_nginx = client.logs.nginx
 
-    path = nginx.count_documents({'$and': [{'method' : 'GET'}, {"path":
-                                                                "/status"}]})
-
-    print(f"{total_logs} logs")
+    num_of_docs = collec_nginx.count_documents({})
+    print("{} logs".format(num_of_docs))
     print("Methods:")
-    print(f"\tmethod GET: {get}")
-    print(f"\tmethod POST: {post}")
-    print(f"\tmethod PUT: {put}")
-    print(f"\tmethod PATCH: {patch}")
-    print(f"\tmethod DELETE: {delete}")
-    print(f"{path} status check")
+    methods_list = ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    for method in methods_list:
+        method_count = collec_nginx.count_documents({"method": method})
+        print("\tmethod {}: {}".format(method, method_count))
+    status = collec_nginx.count_documents({"method": "GET", "path": "/status"})
+    print("{} status check".format(status))
+
     print("IPs:")
-    sorted_ips = nginx.aggregate(
-        [{"$group": {"_id": "$ip", "count": {"$sum": 1}}},
-         {"$sort": {"count": -1}}])
-    i = 0
-    for s in sorted_ips:
-        if i == 10:
-            break
-        print(f"\t{s.get('_id')}: {s.get('count')}")
-        i += 1
+
+    top_IPs = collec_nginx.aggregate([
+        {"$group":
+         {
+             "_id": "$ip",
+             "count": {"$sum": 1}
+         }
+         },
+        {"$sort": {"count": -1}},
+        {"$limit": 10},
+        {"$project": {
+            "_id": 0,
+            "ip": "$_id",
+            "count": 1
+        }}
+    ])
+    for top_ip in top_IPs:
+        count = top_ip.get("count")
+        ip_address = top_ip.get("ip")
+        print("\t{}: {}".format(ip_address, count))
 
 
 if __name__ == "__main__":
-    nginxlog_stats()
+    nginx_stats_check()
