@@ -30,7 +30,7 @@ def nginxlog_stats:
     print(f"\tmethod DELETE: {delete}")
     print(f"{path} status check")
     print("IPs:")
-    sorted_ips = logs_collection.aggregate(
+    sorted_ips = nginx.aggregate(
         [{"$group": {"_id": "$ip", "count": {"$sum": 1}}},
          {"$sort": {"count": -1}}])
     i = 0
