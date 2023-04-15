@@ -24,11 +24,12 @@ def count_calls(method: Callable) -> Callable:
         return method(self, *args, **kwargs)
     return wrapper
 
+
 def call_history(method: Callable) -> Callable:
     """
     Add input params to a list in redis, & store its output into another list.
     """
-        key = method.__qualname__
+    key = method.__qualname__
     inputs_key = "".join([key, ":inputs"])
     outputs_key = "".join([key, ":outputs"])
 
