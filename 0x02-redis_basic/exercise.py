@@ -18,10 +18,10 @@ def count_calls(method: Callable) -> Callable:
     key = method.__qualname__
 
     @wraps(method)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
         """ Returns a Callable """
         self._redis.incr(key)
-        return method(self, *args, **kwargs)
+        return method(*args, **kwargs)
     return wrapper
 
 
@@ -37,7 +37,7 @@ def call_history(method: Callable) -> Callable:
     def wrapper(self, *args, **kwargs):
         """ Wrapp, returns a Callable """
         self._redis.rpush(inputs_key, str(args))
-        output_data = method(self, *args, **kwargs)
+        output_data = method(*args, **kwargs)
         self._redis.rpush(outputs_key, str(output_data))
         return output_data
 
@@ -73,7 +73,7 @@ class Cache:
          store the input data in Redis using the
           random key and return the key.
         """
-        key = str(uuid4())
+        key = str(uuid4)
         self._redis.set({key: data})
         return key
 
