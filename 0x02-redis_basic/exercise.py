@@ -7,8 +7,8 @@ increments and retrieves data in Redis.
 
 from functools import wraps
 from typing import Union, Optional, Callable
+from uuid import uuid4
 import redis
-import uuid
 
 UnionTypes = Union[str, bytes, int, float]
 
