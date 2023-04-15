@@ -1,80 +1,78 @@
 #!/usr/bin/env python3
 
 """
-This module defines a Cache class that stores data in Redis.
+Redis module which defines a Cache class that stores, reads, writes to,
+increments and retrieves data in Redis.
 """
 
-import uuid
-from typing import Union
+from functools import wraps
+from typing import Union, Optional, Callable
 import redis
+import uuid
+
+UnionTypes = Union[str, bytes, int, float]
+
+
+def count_calls(method: Callable) -> Callable:
+    """ Count num of times methods of Cache class are called"""
+    key = method.__qualname__
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        """ Returns a Callable """
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+    return wrapper
+
+def call_history(method: Callable) -> Callable:
+    """
+    Add input params to a list in redis, & store its output into another list.
+    """
+        key = method.__qualname__
+    inputs_key = "".join([key, ":inputs"])
+    outputs_key = "".join([key, ":outputs"])
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        """ Wrapp, returns a Callable """
+        self._redis.rpush(inputs_key, str(args))
+        output_data = method(self, *args, **kwargs)
+        self._redis.rpush(outputs_key, str(output_data))
+        return output_data
+
+    return wrapper
 
 
 class Cache:
-    """
-    A class that provides caching functionality using Redis.
+    """ Defines Cache redis class """
 
-    Methods:
-    --------
-    store(data: Union[str, bytes, int, float]) -> str
-        Stores the provided data in Redis and returns the key used to store it.
-    get(key: str, fn: Callable = None) -> Union[str, bytes, int, float]
-        Retrieves value stored in Redis with the provided key, and applies the
-        specified conversion func (if provided) to the val before returning it.
-
-    get_str(key: str) -> str
-        Convenience method; retrieves value stored in Redis with provided
-        key and returns it as a string.
-
-    get_int(key: str) -> int
-        Convenience method; retrieves value stored in Redis with provided
-        key and returns it as an integer.
-    """
-
-    def __init__(self) -> None:
-        """
-        Initializes Cache instance by creating Redis client & flushing the db.
-        """
+    def __init__(self):
+        """ Redis model Constructor """
         self._redis = redis.Redis()
         self._redis.flushdb()
 
-    def store(self, data: Union[str, bytes, int, float]) -> str:
+    @count_calls
+    @call_history
+    def store(self, data: UnionTypes) -> str:
         """
-        Stores the provided data in Redis and returns the key used to store it.
-
-        Parameters:
-        -----------
-        data : Union[str, bytes, int, float]
-            Data to can be a string, bytes, integer or float.
-
-        Returns:
-        --------
-        str
-            The key used to store the data in Redis.
+        Generate a random key (e.g. using uuid),
+         store the input data in Redis using the
+          random key and return the key.
         """
-        key = str(uuid.uuid4())
-        self._redis.set(key, data)
+        key = str(uuid4())
+        self._redis.set({key: data})
         return key
 
-    def get(self, key: str, fn: Callable = None) -> Union[str, bytes,
-                                                          int, float]:
+    def get(self, key: str, fn: Optional[Callable] = None) \
+            -> UnionTypes:
         """
-        Retrieves value stored in Redis with provided key, & applies the
-        specified conversion func (if provided) to val before returning it.
-
-        Parameters:
-        -----------
-        key : str
-            The key of the data to retrieve from Redis.
-        fn : Callable, optional
-            A callable that takes a single argument (data retrieved from Redis)
-            returns a converted value. If not provided, the raw value retrieved
-            from Redis will be returned.
-
-        Returns:
-        --------
-        Union[str, bytes, int, float]
-            Value stored in Redis with provided key, after being optionally
-            converted by the specified function.
+        Reads from Redis and converts the data back
+        to the desired format
+        eval:
+        if fn:
+            return fn(self._redis.get(key))
+        data = self._redis.get(key)
+        return data
         """
         value = self._redis.get(key)
         if value is None:
@@ -83,35 +81,10 @@ class Cache:
             return fn(value)
         return value
 
-    def get_str(self, key: str) -> str:
-        """
-        Convenience method that retrieves the value stored in Redis with
-        provided key and returns it as a string.
+    def get_int(self, key: bytes) -> int:
+        """Retrieves val stored in Redis & returns it in int format"""
+        return self.get(key, lambda x: int(x))
 
-        Parameters:
-        -----------
-        key : str
-            The key of the data to retrieve from Redis.
-
-        Returns:
-        --------
-        str
-            The value stored in Redis with the provided key, as a string.
-        """
-        return self.get(key, fn=lambda x: x.decode())
-
-    def get_int(self, key: str) -> int:
-        """
-        Convenience method that retrieves the value stored in Redis with
-        provided key and returns it as an integer.
-
-        Parameters:
-        -----------
-        key : str
-            The key of the data to retrieve from Redis.
-
-        Returns:
-        -------
-        int
-        """
-        return self.get(key, fn=int)
+    def get_str(self, key: str) -> UnionTypes:
+        """Retrieves val stored in Redis & returns it in str format"""
+        return str(self.get(key, lambda x: x.decode('utf-8')))
